@@ -7,16 +7,13 @@ import re
 # blocks = page1.get_text("dict")["blocks"]
 
 #取得總頁數
-def get_total_pages(file_path):
-    paper = fitz.open(file_path)
-    total_pages = len(paper)
-    return total_pages
+def get_total_pages(paper):
+    return len(paper)
 
 #取得正文總頁數
-def get_main_total_pages(file_path, content_idx):
-    paper = fitz.open(file_path)
+def get_main_total_pages(paper, content_idx):
     total_pages = len(paper)
-    first_page_idx = find_first_page(file_path, content_idx)
+    first_page_idx = find_first_page(paper, content_idx)
     head_idx = first_page_idx
     main_total_pages = total_pages-head_idx
     return main_total_pages
@@ -32,31 +29,37 @@ def print_text_blocks(blocks):
 
                     print(f"Font: {font_name}, Size: {font_size:.2f}, Text: {text}")
 
-#遞迴每一頁，以尋找目錄的位置
-def find_content_page(file_path):
-    paper = fitz.open(file_path)
-    total_pages = len(paper)
-    content_idx = [0,1]
-    is_found = False
+# #遞迴每一頁，以尋找目錄的位置
+# def find_content_page(paper):
+#     total_pages = len(paper)
+#     content_idx = None
+#     is_found = False
 
-    for page_idx in range(total_pages):
-        page = paper[page_idx]
-        matches = page.search_for("目錄")
-        if matches:
-            if not is_found:
-                is_found = True
-                content_idx[0] = page_idx
-            elif is_found and content_idx[0] > content_idx[1]:
-                content_idx[1] = page_idx-1
+#     for page_idx in range(1,total_pages):
+#         page = paper[page_idx]
+#         text = page.get_text()
+#         text_lower = text.lower()
+
+#         has_catalog_keyword = ("目錄" in text) or ("contents" in text_lower) or ("table of contents" in text_lower) or ("content" in text_lower)
+#         has_leader_lines = bool(re.search(r"[\.\-_]{2,}", text))
+
+#         if has_catalog_keyword and has_leader_lines:
+#             if not is_found:
+#                 is_found = True
+#                 content_idx = [page_idx, page_idx]
+#             elif is_found and page_idx >= content_idx[0]:
+#                 content_idx[1] = page_idx
+        
             
-            # print(f"Page {page_idx + 1}: {matchs}")
-    return content_idx
+#             # print(f"Page {page_idx + 1}: {matchs}")
+#     # 印出找到的目錄頁碼範圍
+#     print(f"【除錯訊息】定位到的目錄頁碼範圍索引：{content_idx} (代表第 {content_idx[0]+1} ~ {content_idx[1]+1} 頁)")
+#     return content_idx
 
-#提取目錄(章節、頁碼)，並回傳目錄
-def extract_content(file_path, content_idx):
-    paper = fitz.open(file_path)
+# 提取目錄(章節、頁碼)，並回傳目錄
+def extract_content(paper, content_idx):
     total_pages = len(paper)
-    pattern = re.compile(r"(.+?)\s*[\.]{2,}\s*(\d+)")
+    pattern = re.compile(r"(.+?)[\s\.\-_]{2,}\s*(\d+)")
     matches = pattern.findall(paper[content_idx[0]].get_text())
     #列印完整目錄
     for page_idx in range(content_idx[0]+1, content_idx[1] + 1):
@@ -71,11 +74,16 @@ def extract_content(file_path, content_idx):
             #檢查目錄頁碼是否正確
             # if page_num_idx >=0 and page_num_idx < total_pages:
             #     print(f"Title: {title}, Page Number: {page_num}\n")
+    # 印出擷取到的目錄列表
+    print(f"【除錯訊息】擷取到的目錄項目數量：{len(matches)}")
+    if matches:
+        print(f"【除錯訊息】前 3 筆目錄範例：{matches[:3]}")
+    else:
+        print("【除錯訊息】⚠️ 完全沒有擷取到任何目錄項目！")
     return matches
 
 #尋找第一章的位置
-def find_first_page(file_path, content_idx):
-    paper = fitz.open(file_path)
+def find_first_page(paper, content_idx):
     total_pages = len(paper)
     pattern = re.compile(r"(.+?)\s*[\.]{2,}\s*(\d+)")
     matches = pattern.findall(paper[content_idx[0]].get_text())
@@ -93,10 +101,9 @@ def find_first_page(file_path, content_idx):
     return first_page_idx
 
 #check目錄頁碼是否正確
-def check_content_page(file_path, content_idx):
-    paper = fitz.open(file_path)
+def check_content_page(paper, content_idx):
     total_pages = len(paper)
-    first_page_idx = find_first_page(file_path, content_idx)
+    first_page_idx = find_first_page(paper, content_idx)
     head_idx = first_page_idx - 1
     result = True
     error_dict = {}
@@ -105,7 +112,7 @@ def check_content_page(file_path, content_idx):
     for page_idx in range(first_page_idx, total_pages):
         page = paper[page_idx]
         text = page.get_text()
-        content = extract_content(file_path, content_idx)
+        content = extract_content(paper, content_idx)
 
         for title, content_num_str in content:
             content_num = int(content_num_str)
@@ -124,7 +131,6 @@ def check_content_page(file_path, content_idx):
         if page.search_for(key):
             result = True
 
-    paper.close()
     return result
 
 
